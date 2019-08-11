@@ -1,10 +1,12 @@
 var express = require('express');
 var router = express.Router();
 var Tesseract = require('tesseract.js');
-Tesseract.create({
-    langPath: 'public/lib/tesseract/lang/',
+// const worker = TesseractWorker();
+// Tesseract.TesseractWorker({
+//     // langPath: 'public/lib/tesseract/lang/',
+// });
+const worker = new Tesseract.TesseractWorker({
 });
-
 
 router.post('/', function(req, res, next) {
     var base64 = req.body.image.split(',')[1];
@@ -12,7 +14,7 @@ router.post('/', function(req, res, next) {
         "messages": "OCR result",
         "text": ""
     }
-    Tesseract.recognize(Buffer.from(base64, 'base64'), 'vie')
+    worker.recognize(Buffer.from(base64, 'base64'), 'vie')
     .progress(message => console.log(message))
     .catch(err => console.error(err))
     .then(result => {
