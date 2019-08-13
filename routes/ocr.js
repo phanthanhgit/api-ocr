@@ -1,32 +1,35 @@
 var express = require('express');
 var router = express.Router();
-var Jimp = require('jimp');
-const { TesseractWorker } = require('tesseract.js');
+const { TesseractWorker } = require('tesseract.js'); //Tesseract
 const path = require('path');
+const sharp = require('sharp'); //Sharp
+var Jimp = require('jimp'); //Jimp
 
+//path traindata
 const worker = new TesseractWorker({
     langPath: path.join(__dirname, '..', 'lang-data'),
 });
 
 router.post('/', async function (req, res, next) {
     var base64 = req.body.image.split(',')[1];
+    var img = Buffer.from(base64, 'base64');
     var endBase64 = "";
     var resultOCR = {
         "oriResult": "",
         "endResult": ""
     }
-    
+
     //Image processing
-    await Jimp.read(Buffer.from(base64, 'base64'))
+    var dt = await sharp(img)  
+        .grayscale()
+        .sharpen(50, 5, 0.5)
+        .toBuffer();
+
+    await Jimp.read(dt)
         .then(image => {
-            image.quality(100)
-                .grayscale();
-            image.mask('?', 20, 2, (err, data) => {
-                    if (err) throw console.log(err);
-                });
-            image.brightness(0.3)
-                .contrast(0.9)
-                .write('img.png');
+            image.gaussian(1);
+            image.brightness(0.270);
+            image.contrast(0.975).write('img-jimp.png');
             image.getBase64("image/png", (err, data) => {
                 if (err) throw console.log(err);
                 endBase64 = data;
@@ -34,7 +37,7 @@ router.post('/', async function (req, res, next) {
         })
         .catch(err => {
             console.log(err);
-        });
+        })
 
     //OCR
     worker.recognize(endBase64, 'vie')
@@ -45,13 +48,10 @@ router.post('/', async function (req, res, next) {
             var tmp = result.text.replace(/[^A-Za-z0-9Đ ]/g, '').trim();
             if (tmp.length < 3){
                 resultOCR.endResult = '';
-            } else if (tmp[2] !== ' ') {
-                resultOCR.endResult = tmp.slice(0, 2) + " " + tmp.slice(2, tmp.length);
-                console.log(resultOCR);
             } else {
                 resultOCR.endResult = tmp;
-                console.log(resultOCR);
             }
+            console.log(resultOCR);
             res.send(resultOCR);
         })
         .finally();    
