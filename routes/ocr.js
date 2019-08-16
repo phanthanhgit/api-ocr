@@ -25,27 +25,28 @@ router.post('/', async function (req, res, next) {
         .sharpen(50, 5, 0.5)
         .toBuffer();
 
-    await Jimp.read(dt)
-        .then(image => {
-            image.gaussian(1);
-            image.brightness(0.270);
-            image.contrast(0.975).write('img-jimp.png');
-            image.getBase64("image/png", (err, data) => {
-                if (err) throw console.log(err);
-                endBase64 = data;
-            });
-        })
-        .catch(err => {
-            console.log(err);
-        })
+    // await Jimp.read(dt)
+    //     .then(image => {
+    //         image.gaussian(1).write('img-jimp.png');
+    //         // image.brightness(0.2);
+    //         // image.contrast(0.975).write('img-jimp.png');
+    //         image.getBase64("image/png", (err, data) => {
+    //             if (err) throw console.log(err);
+    //             endBase64 = data;
+    //         });
+    //     })
+    //     .catch(err => {
+    //         console.log(err);
+    //     })
 
     //OCR
-    worker.recognize(endBase64, 'vie')
+    worker.recognize(dt, 'vie')
         .progress(message => console.log(message))
         .catch(err => console.error(err))
         .then(result => {
-            resultOCR.oriResult = result.text;
-            var tmp = result.text.replace(/[^A-Za-z0-9Đ ]/g, '').trim();
+            resultOCR.oriResult = result.text.toString(16);
+            var tmp = result.text.toString(16).replace(/[^A-Za-z0-9Đ ]Đ/g, '').trim();
+            tmp = tmp.replace('Ð', 'Đ');
             if (tmp.length < 3){
                 resultOCR.endResult = '';
             } else {
