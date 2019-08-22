@@ -1,18 +1,29 @@
 var express = require('express');
 var router = express.Router();
-const { TesseractWorker } = require('tesseract.js'); //Tesseract
+const { TesseractWorker, OEM } = require('tesseract.js'); //Tesseract
 const path = require('path');
 const sharp = require('sharp'); //Sharp
 var Jimp = require('jimp'); //Jimp
+var fs = require('fs');
+const multer = require('multer');
+var gm = require('gm');
 
 //path traindata
 const worker = new TesseractWorker({
     langPath: path.join(__dirname, '..', 'lang-data'),
 });
 
-router.post('/', async function (req, res, next) {
-    var base64 = req.body.image.split(',')[1];
-    var img = Buffer.from(base64, 'base64');
+var storage = multer.diskStorage({
+    destination: './public/uploads/',
+    filename: function (req, file, cb) {
+        cb(null, 'upload-img')
+    },
+})
+
+var upload = multer({ storage });
+
+router.post('/', upload.single('file'), async function (req, res, next) {
+    var img = await fs.readFileSync(req.file.path);
     var endBase64 = "";
     var resultOCR = {
         "oriResult": "",
@@ -20,32 +31,50 @@ router.post('/', async function (req, res, next) {
     }
 
     //Image processing
-    var dt = await sharp(img)  
-        .grayscale()
-        .sharpen(50, 5, 0.5)
-        .toBuffer();
-
-    // await Jimp.read(dt)
-    //     .then(image => {
-    //         image.gaussian(1).write('img-jimp.png');
-    //         // image.brightness(0.2);
-    //         // image.contrast(0.975).write('img-jimp.png');
-    //         image.getBase64("image/png", (err, data) => {
-    //             if (err) throw console.log(err);
-    //             endBase64 = data;
-    //         });
-    //     })
-    //     .catch(err => {
-    //         console.log(err);
-    //     })
+    await Jimp.read(img)
+        .then(image => {
+            var iHeight = 140;
+            var orH = image.getHeight();
+            if(image.getHeight() > 140)
+                image.resize(Jimp.AUTO, iHeight);
+            if(orH > 100)
+                for(var x = 0; x < image.getWidth(); x++){
+                    for(var y = 0; y < image.getHeight(); y++){
+                        var pixel = Jimp.intToRGBA(image.getPixelColor(x, y));
+                        if (pixel.r < 69 && pixel.g < 79 && pixel.b < 79){
+                            image.setPixelColor(Jimp.cssColorToHex('#000'), x, y);
+                        } else if (pixel.r > 47 && pixel.g > 79 && pixel.b > 79){
+                            image.setPixelColor(Jimp.cssColorToHex('#fff'), x, y)
+                        }
+                    }
+                }
+            image.write('img-setcolor.png');
+            image
+                .color([
+                    { apply: 'desaturate', params: [90]}
+                ]);
+            image.write('img-desaturate.png');
+            image.write('img-end.png');
+            image.getBase64("image/png", (err, data) => {
+                if (err) throw console.log(err);
+                endBase64 = data;
+            });
+        })
+        .catch(err => {
+            console.log(err);
+        });
 
     //OCR
-    worker.recognize(dt, 'vie')
+    //OEM.OEM_TESSERACT_LSTM_COMBINED
+    worker.recognize(endBase64,  'vie', {
+            tessedit_ocr_engine_mode: 3,
+            tessedit_char_whitelist: 'Đ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ',
+        })
         .progress(message => console.log(message))
         .catch(err => console.error(err))
         .then(result => {
             resultOCR.oriResult = result.text.toString(16);
-            var tmp = result.text.toString(16).replace(/[^A-Za-z0-9Đ ]Đ/g, '').trim();
+            var tmp = result.text.toString(16).replace(/[^A-Za-z0-9ĐÐ ]/g, '').trim();
             tmp = tmp.replace('Ð', 'Đ');
             if (tmp.length < 3){
                 resultOCR.endResult = '';
