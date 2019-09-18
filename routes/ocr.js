@@ -33,27 +33,30 @@ router.post('/', upload.single('file'), async function (req, res, next) {
     //Image processing
     await Jimp.read(img)
         .then(image => {
-            var iHeight = 140;
+            var iHeight = 120;
             var orH = image.getHeight();
-            if(image.getHeight() > 140)
+            if(image.getHeight() > 120)
                 image.resize(Jimp.AUTO, iHeight);
-            if(orH > 100)
-                for(var x = 0; x < image.getWidth(); x++){
-                    for(var y = 0; y < image.getHeight(); y++){
-                        var pixel = Jimp.intToRGBA(image.getPixelColor(x, y));
-                        if (pixel.r < 69 && pixel.g < 79 && pixel.b < 79){
-                            image.setPixelColor(Jimp.cssColorToHex('#000'), x, y);
-                        } else if (pixel.r > 47 && pixel.g > 79 && pixel.b > 79){
-                            image.setPixelColor(Jimp.cssColorToHex('#fff'), x, y)
-                        }
-                    }
-                }
-            image.write('img-setcolor.png');
+
             image
                 .color([
                     { apply: 'desaturate', params: [90]}
                 ]);
             image.write('img-desaturate.png');
+
+            // if(orH > 100)
+            //     for(var x = 0; x < image.getWidth(); x++){
+            //         for(var y = 0; y < image.getHeight(); y++){
+            //             var pixel = Jimp.intToRGBA(image.getPixelColor(x, y));
+            //             if (pixel.r < 69 && pixel.g < 69 && pixel.b < 69){
+            //                 image.setPixelColor(Jimp.cssColorToHex('#000'), x, y);
+            //             } else if (pixel.r > 69 && pixel.g > 69 && pixel.b > 69){
+            //                 image.setPixelColor(Jimp.cssColorToHex('#fff'), x, y)
+            //             }
+            //         }
+            //     }
+            // image.write('img-setcolor.png');
+            
             image.write('img-end.png');
             image.getBase64("image/png", (err, data) => {
                 if (err) throw console.log(err);
@@ -73,8 +76,8 @@ router.post('/', upload.single('file'), async function (req, res, next) {
         .progress(message => console.log(message))
         .catch(err => console.error(err))
         .then(result => {
-            resultOCR.oriResult = result.text.toString(16);
-            var tmp = result.text.toString(16).replace(/[^A-Za-z0-9ĐÐ ]/g, '').trim();
+            resultOCR.oriResult = result.text;
+            var tmp = result.text.replace(/[^A-Za-z0-9ĐÐ ]/g, '').trim();
             tmp = tmp.replace('Ð', 'Đ');
             if (tmp.length < 3){
                 resultOCR.endResult = '';
